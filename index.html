@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>물리화학: 열역학 시뮬레이션 게임</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f8ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .simulation-area {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            min-width: 600px;
+        }
+        .controls {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            min-width: 300px;
+            max-width: 400px;
+        }
+        canvas {
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .slider-container {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .value-display {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+        .equation-selector {
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.active {
+            background-color: #16a085;
+        }
+        .data-panel {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .molecule-legend {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+        }
+        .mission {
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>물리화학: 열역학 시뮬레이션 게임</h1>
+    <p class="subtitle">이상기체와 실제기체의 상태방정식 비교</p>
+    
+    <div class="container">
+        <div class="simulation-area">
+            <canvas id="simulationCanvas" width="600" height="400"></canvas>
+            <div class="molecule-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3498db;"></div>
+                    <span>이상기체 분자</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e74c3c;"></div>
+                    <span>실제기체 분자 (인력)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f39c12;"></div>
+                    <span>실제기체 분자 (척력)</span>
+                </div>
+            </div>
+            <div class="data-panel" id="dataOutput">데이터 로딩 중...</div>
+            <div class="mission" id="missionText">미션: 이상기체와 실제기체 사이의 10% 이상 편차를 만드세요!</div>
+        </div>
+        
+        <div class="controls">
+            <div class="equation-selector">
+                <label>상태방정식 선택:</label>
+                <button id="idealGasBtn" class="active">이상기체 법칙</button>
+                <button id="vanderwaalsBtn">반데르발스 방정식</button>
+                <button id="virialBtn">비리알 방정식</button>
+            </div>
+            <!-- 미션 선택 UI 추가: controls 영역에 넣어주세요 -->
+            <div class="slider-container">
+                <label for="missionStageSelector">미션 단계 선택:</label>
+                <select id="missionStageSelector">
+                    <option value="1">미션 1: 10% 이상 편차</option>
+                    <option value="2">미션 2: 20% 이상 편차</option>
+        </select>
+        </div>
+
+            <div class="slider-container">
+                <label for="temperatureSlider">온도 (K):</label>
+                <input type="range" id="temperatureSlider" min="100" max="1000" value="300" step="10">
+                <div class="value-display">현재 값: <span id="temperatureValue">300</span> K</div>
+            </div>
+            
+            <div class="slider-container">
+                <label for="volumeSlider">부피 (L):</label>
+                <input type="range" id="volumeSlider" min="1" max="100" value="22.4" step="0.1">
+                <div class="value-display">현재 값: <span id="volumeValue">22.4</span> L</div>
+            </div>
+            
+            <div class="slider-container">
+                <label for="molesSlider">몰 수 (mol):</label>
+                <input type="range" id="molesSlider" min="0.1" max="10" value="1" step="0.1">
+                <div class="value-display">현재 값: <span id="molesValue">1</span> mol</div>
+            </div>
+            
+            <div class="slider-container">
+                <label for="aParamSlider">매개변수 a (반데르발스 인력):</label>
+                <input type="range" id="aParamSlider" min="0" max="10" value="1.4" step="0.1" disabled>
+                <div class="value-display">현재 값: <span id="aParamValue">1.4</span></div>
+            </div>
+            
+            <div class="slider-container">
+                <label for="bParamSlider">매개변수 b (분자 부피):</label>
+                <input type="range" id="bParamSlider" min="0" max="1" value="0.04" step="0.01" disabled>
+                <div class="value-display">현재 값: <span id="bParamValue">0.04</span></div>
+            </div>
+            
+            <button id="startSimulation">시뮬레이션 시작</button>
+            <button id="resetSimulation">초기화</button>
+        </div>
+    </div>
+
+    <script>
+        // 상수 정의
+        const R = 0.08206; // 기체 상수 (L·atm/(mol·K))
+        
+        // DOM 요소
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const dataOutput = document.getElementById('dataOutput');
+        const missionText = document.getElementById('missionText');
+        
+        // 버튼과 슬라이더
+        const idealGasBtn = document.getElementById('idealGasBtn');
+        const vanderwaalsBtn = document.getElementById('vanderwaalsBtn');
+        const virialBtn = document.getElementById('virialBtn');
+        const tempSlider = document.getElementById('temperatureSlider');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const molesSlider = document.getElementById('molesSlider');
+        const aParamSlider = document.getElementById('aParamSlider');
+        const bParamSlider = document.getElementById('bParamSlider');
+        const startSimBtn = document.getElementById('startSimulation');
+        const resetSimBtn = document.getElementById('resetSimulation');
+        
+        // 초기 상태
+        let currentEquation = 'ideal';
+        let isSimulationRunning = false;
+        let molecules = [];
+        let realGasMolecules = [];
+        let animationId;
+        
+        // 분자 클래스
+        class Molecule {
+            constructor(x, y, radius, color) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.dx = (Math.random() - 0.5) * 4;
+                this.dy = (Math.random() - 0.5) * 4;
+                this.interactionState = 'normal'; // normal, attraction, repulsion
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                
+                // 상호작용 상태에 따른 색상 변경
+                if (this.interactionState === 'attraction') {
+                    ctx.fillStyle = '#e74c3c'; // 빨강 - 인력
+                } else if (this.interactionState === 'repulsion') {
+                    ctx.fillStyle = '#f39c12'; // 주황 - 척력
+                } else {
+                    ctx.fillStyle = this.color;
+                }
+                
+                ctx.fill();
+                ctx.closePath();
+            }
+            
+            update(containerWidth, containerHeight) {
+                // 위치 업데이트
+                this.x += this.dx;
+                this.y += this.dy;
+                
+                // 경계 충돌 처리 - 개선된 버전
+                if (this.x + this.radius > containerWidth) {
+                    this.x = containerWidth - this.radius;
+                    this.dx = -Math.abs(this.dx);
+                } else if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.dx = Math.abs(this.dx);
+                }
+                
+                if (this.y + this.radius > containerHeight) {
+                    this.y = containerHeight - this.radius;
+                    this.dy = -Math.abs(this.dy);
+                } else if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.dy = Math.abs(this.dy);
+                }
+                
+                // 속도 스케일링 (온도 효과)
+                const temp = parseFloat(tempSlider.value);
+                const tempFactor = Math.sqrt(temp / 300);
+                
+                // 속도 감쇠와 온도 효과를 분리 (더 안정적인 시뮬레이션을 위해)
+                const dampingFactor = 0.99; // 약간의 감쇠
+                this.dx = this.dx * dampingFactor;
+                this.dy = this.dy * dampingFactor;
+                
+                // 최소 속도 보장 (분자가 완전히 멈추지 않도록)
+                const minSpeed = 0.2 * tempFactor;
+                const currentSpeed = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+                if (currentSpeed < minSpeed) {
+                    const scaleFactor = minSpeed / (currentSpeed || 0.1); // 0으로 나누기 방지
+                    this.dx *= scaleFactor;
+                    this.dy *= scaleFactor;
+                }
+                
+                // 속도 제한 (너무 빠르지 않게)
+                const maxSpeed = 5 * tempFactor;
+                const speed = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+                if (speed > maxSpeed) {
+                    this.dx = (this.dx / speed) * maxSpeed;
+                    this.dy = (this.dy / speed) * maxSpeed;
+                }
+                
+                this.draw();
+            }
+        }
+        
+        // 시뮬레이션 초기화
+        function initSimulation() {
+            molecules = [];
+            realGasMolecules = [];
+            
+            const moles = parseFloat(molesSlider.value);
+            const baseCount = Math.round(moles * 50); // 분자 수 스케일링
+            
+            // 컨테이너 크기 계산
+            const volume = parseFloat(volumeSlider.value);
+            const baseVolume = 22.4;
+            const scaleFactor = Math.sqrt(volume / baseVolume);
+            const containerWidth = Math.max(canvas.width * Math.min(scaleFactor, 1), 100);
+            const containerHeight = Math.max(canvas.height * Math.min(scaleFactor, 1), 100);
+            
+            // 이상기체 분자 생성
+            for (let i = 0; i < baseCount; i++) {
+                const radius = 5;
+                // 컨테이너 내부에만 생성
+                const x = Math.random() * (containerWidth - radius * 2) + radius;
+                const y = Math.random() * (containerHeight - radius * 2) + radius;
+                molecules.push(new Molecule(x, y, radius, '#3498db'));
+            }
+            
+            // 실제기체 분자도 생성 (비교용)
+            for (let i = 0; i < baseCount; i++) {
+                const radius = 5;
+                const x = Math.random() * (containerWidth - radius * 2) + radius;
+                const y = Math.random() * (containerHeight - radius * 2) + radius;
+                realGasMolecules.push(new Molecule(x, y, radius, '#3498db'));
+            }
+        }
+        
+        // 부피 변경 시 분자 위치 재조정 함수
+        function adjustMoleculesPosition(containerWidth, containerHeight) {
+            // 이상기체 분자 위치 조정
+            molecules.forEach(molecule => {
+                if (molecule.x + molecule.radius > containerWidth) {
+                    molecule.x = containerWidth - molecule.radius - Math.random() * 5;
+                }
+                if (molecule.y + molecule.radius > containerHeight) {
+                    molecule.y = containerHeight - molecule.radius - Math.random() * 5;
+                }
+                
+                // 컨테이너 내부로 강제 이동
+                molecule.x = Math.min(Math.max(molecule.radius, molecule.x), containerWidth - molecule.radius);
+                molecule.y = Math.min(Math.max(molecule.radius, molecule.y), containerHeight - molecule.radius);
+            });
+            
+            // 실제기체 분자 위치 조정
+            realGasMolecules.forEach(molecule => {
+                if (molecule.x + molecule.radius > containerWidth) {
+                    molecule.x = containerWidth - molecule.radius - Math.random() * 5;
+                }
+                if (molecule.y + molecule.radius > containerHeight) {
+                    molecule.y = containerHeight - molecule.radius - Math.random() * 5;
+                }
+                
+                // 컨테이너 내부로 강제 이동
+                molecule.x = Math.min(Math.max(molecule.radius, molecule.x), containerWidth - molecule.radius);
+                molecule.y = Math.min(Math.max(molecule.radius, molecule.y), containerHeight - molecule.radius);
+            });
+        }
+        
+        // 애니메이션 루프
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 컨테이너 크기 조정 (부피에 따라)
+            const volume = parseFloat(volumeSlider.value);
+            const baseVolume = 22.4;
+            const scaleFactor = Math.sqrt(volume / baseVolume); // 2D에서는 제곱근으로 스케일링
+            const containerWidth = Math.max(canvas.width * Math.min(scaleFactor, 1), 100); // 최소 크기 보장
+            const containerHeight = Math.max(canvas.height * Math.min(scaleFactor, 1), 100);
+            
+            // 부피 변경 시 분자 위치 재조정
+            adjustMoleculesPosition(containerWidth, containerHeight);
+            
+            // 컨테이너 테두리 그리기
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, containerWidth, containerHeight);
+            
+            // 이상기체 분자 업데이트
+            molecules.forEach(molecule => {
+                molecule.update(containerWidth, containerHeight);
+            });
+            
+            // 실제기체 시뮬레이션인 경우, 분자 간 상호작용 계산
+            if (currentEquation !== 'ideal') {
+                const a = parseFloat(aParamSlider.value);
+                const b = parseFloat(bParamSlider.value);
+                
+                realGasMolecules.forEach((molecule, index) => {
+                    // 분자 간 상호작용 (반데르발스 힘)
+                    molecule.interactionState = 'normal';
+                    
+                    for (let j = 0; j < realGasMolecules.length; j++) {
+                        if (index === j) continue;
+                        
+                        const other = realGasMolecules[j];
+                        const dx = other.x - molecule.x;
+                        const dy = other.y - molecule.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // 인력과 척력을 시각화 (상호작용 강도 감소)
+                        if (distance < 30) { // 가까운 거리에서 척력
+                            molecule.interactionState = 'repulsion';
+                            if (currentEquation === 'vanderwaals') {
+                                const force = b * 0.05 / (distance * distance + 0.1); // 너무 커지지 않도록 제한
+                                molecule.dx -= dx / distance * force;
+                                molecule.dy -= dy / distance * force;
+                            }
+                        } else if (distance < 100) { // 중간 거리에서 인력
+                            molecule.interactionState = 'attraction';
+                            if (currentEquation === 'vanderwaals') {
+                                const force = a * 0.00005 / (distance + 0.1); // 인력 감소
+                                molecule.dx += dx / distance * force;
+                                molecule.dy += dy / distance * force;
+                            }
+                        }
+                    }
+                    
+                    // 분자가 컨테이너 내부에 있는지 확인
+                    if (molecule.x < 0 || molecule.x > containerWidth || 
+                        molecule.y < 0 || molecule.y > containerHeight) {
+                        // 컨테이너 밖에 있으면 내부로 재배치
+                        molecule.x = Math.min(Math.max(molecule.radius, molecule.x), containerWidth - molecule.radius);
+                        molecule.y = Math.min(Math.max(molecule.radius, molecule.y), containerHeight - molecule.radius);
+                        // 방향 전환
+                        molecule.dx = -molecule.dx;
+                        molecule.dy = -molecule.dy;
+                    }
+                    
+                    molecule.update(containerWidth, containerHeight);
+                });
+            }
+            
+            // 압력과 기타 데이터 계산 및 표시
+            calculateAndDisplayData();
+        }
+        
+        // 상태방정식에 따른 압력 계산
+        function calculatePressure() {
+            const volume = parseFloat(volumeSlider.value); // L
+            const temperature = parseFloat(tempSlider.value); // K
+            const moles = parseFloat(molesSlider.value); // mol
+            
+            let idealPressure = (moles * R * temperature) / volume; // atm
+            let realPressure;
+            
+            // 실제기체 압력 계산
+            if (currentEquation === 'vanderwaals') {
+                const a = parseFloat(aParamSlider.value);
+                const b = parseFloat(bParamSlider.value);
+                realPressure = (moles * R * temperature) / (volume - moles * b) - (a * moles * moles) / (volume * volume);
+            } else if (currentEquation === 'virial') {
+                // 간단한 비리알 방정식 구현
+                const B = 0.05 - 15 / temperature; // 온도 의존적 2차 비리알 계수
+                realPressure = (moles * R * temperature / volume) * (1 + B * moles / volume);
+            } else {
+                realPressure = idealPressure; // 이상기체 선택시
+            }
+            
+            return { ideal: idealPressure, real: realPressure };
+        }
+        
+        // 미션 단계 추적 변수 (전역으로 선언)
+// 미션 단계 추적 변수
+let missionStage = 1;
+
+function calculateAndDisplayData() {
+    const pressure = calculatePressure();
+    const deviation = ((pressure.real - pressure.ideal) / pressure.ideal) * 100;
+
+    dataOutput.innerHTML = `
+        <strong>이상기체 압력:</strong> ${pressure.ideal.toFixed(4)} atm<br>
+        <strong>실제기체 압력:</strong> ${pressure.real.toFixed(4)} atm<br>
+        <strong>편차:</strong> ${Math.abs(deviation).toFixed(2)}%
+    `;
+
+    if (missionStage === 1 && Math.abs(deviation) >= 10) {
+        missionText.innerHTML = `
+            <strong>미션 1 달성!</strong> 10% 이상의 편차를 달성하여 1단계 미션을 완성하였습니다.<br>
+            <em>2단계 미션을 선택해주세요.</em>
+        `;
+        missionText.style.backgroundColor = '#27ae60';
+    } else if (missionStage === 2 && Math.abs(deviation) >= 20) {
+        missionText.innerHTML = `
+            <strong>미션 2 달성!</strong> 축하합니다. 2단계 미션을 완수하였습니다.<br>
+            <em>어떤 변수들을 조절하면 이상기체와 실제기체의 차이가 커지는지를 정리해보시기 바랍니다.</em>
+        `;
+        missionText.style.backgroundColor = '#8e44ad';
+    }
+}
+
+
+// let missionStage = 1;
+
+// function calculateAndDisplayData() {
+//     const pressure = calculatePressure();
+//     const deviation = ((pressure.real - pressure.ideal) / pressure.ideal) * 100;
+
+//     dataOutput.innerHTML = `
+//         <strong>이상기체 압력:</strong> ${pressure.ideal.toFixed(4)} atm<br>
+//         <strong>실제기체 압력:</strong> ${pressure.real.toFixed(4)} atm<br>
+//         <strong>편차:</strong> ${Math.abs(deviation).toFixed(2)}%
+//     `;
+
+//     if (missionStage === 1 && Math.abs(deviation) >= 10) {
+//         missionText.innerHTML = `
+//             <strong>미션 1 달성!</strong> 이상기체와 실제기체 사이에 ${Math.abs(deviation).toFixed(2)}% 편차를 만들었습니다!<br>
+//             <em>다음 미션: 극한 조건에서 20% 이상의 편차를 만드세요.</em>
+//         `;
+//         missionText.style.backgroundColor = '#27ae60';
+//         missionStage = 2;
+//     } else if (missionStage === 2 && Math.abs(deviation) >= 20) {
+//         missionText.innerHTML = `
+//             <strong>미션 2 달성!</strong> 극한 조건에서 ${Math.abs(deviation).toFixed(2)}% 편차를 만들었습니다!<br>
+//             🎉 축하합니다. 모든 미션을 완료하셨습니다!
+//         `;
+//         missionText.style.backgroundColor = '#8e44ad'; // 보라색
+//         missionStage = 3; // 더 이상 갱신 안 함
+//     }
+// }
+
+
+
+
+
+        // function calculateAndDisplayData() {
+        //     const pressure = calculatePressure();
+        //     const deviation = ((pressure.real - pressure.ideal) / pressure.ideal) * 100;
+            
+        //     dataOutput.innerHTML = `
+        //         <strong>이상기체 압력:</strong> ${pressure.ideal.toFixed(4)} atm<br>
+        //         <strong>실제기체 압력:</strong> ${pressure.real.toFixed(4)} atm<br>
+        //         <strong>편차:</strong> ${Math.abs(deviation).toFixed(2)}%
+        //     `;
+            
+        //     // 미션 달성 확인
+        //     if (Math.abs(deviation) >= 10) {
+        //         missionText.innerHTML = `
+        //             <strong>미션 달성!</strong> 이상기체와 실제기체 사이에 ${Math.abs(deviation).toFixed(2)}% 편차를 만들었습니다!
+        //             다음 미션: 극한 조건에서 20% 이상의 편차를 만드세요.
+        //         `;
+        //         missionText.style.backgroundColor = '#27ae60';
+        //     }
+        // }
+        
+        // 이벤트 리스너
+        idealGasBtn.addEventListener('click', () => {
+            currentEquation = 'ideal';
+            toggleActiveEquation(idealGasBtn);
+            aParamSlider.disabled = true;
+            bParamSlider.disabled = true;
+        });
+        
+        vanderwaalsBtn.addEventListener('click', () => {
+            currentEquation = 'vanderwaals';
+            toggleActiveEquation(vanderwaalsBtn);
+            aParamSlider.disabled = false;
+            bParamSlider.disabled = false;
+        });
+        
+        virialBtn.addEventListener('click', () => {
+            currentEquation = 'virial';
+            toggleActiveEquation(virialBtn);
+            aParamSlider.disabled = true;
+            bParamSlider.disabled = true;
+        });
+        
+        function toggleActiveEquation(activeBtn) {
+            idealGasBtn.classList.remove('active');
+            vanderwaalsBtn.classList.remove('active');
+            virialBtn.classList.remove('active');
+            activeBtn.classList.add('active');
+        }
+        
+        // 슬라이더 값 표시 업데이트
+        tempSlider.addEventListener('input', () => {
+            document.getElementById('temperatureValue').textContent = tempSlider.value;
+        });
+        
+        volumeSlider.addEventListener('input', () => {
+            document.getElementById('volumeValue').textContent = volumeSlider.value;
+            // 즉시 분자 위치 조정 (슬라이더 움직일 때마다)
+            if (isSimulationRunning) {
+                const volume = parseFloat(volumeSlider.value);
+                const baseVolume = 22.4;
+                const scaleFactor = Math.sqrt(volume / baseVolume);
+                const containerWidth = Math.max(canvas.width * Math.min(scaleFactor, 1), 100);
+                const containerHeight = Math.max(canvas.height * Math.min(scaleFactor, 1), 100);
+                adjustMoleculesPosition(containerWidth, containerHeight);
+            }
+        });
+        
+        molesSlider.addEventListener('input', () => {
+            document.getElementById('molesValue').textContent = molesSlider.value;
+        });
+        
+        aParamSlider.addEventListener('input', () => {
+            document.getElementById('aParamValue').textContent = aParamSlider.value;
+        });
+        
+        bParamSlider.addEventListener('input', () => {
+            document.getElementById('bParamValue').textContent = bParamSlider.value;
+        });
+        
+        // 시뮬레이션 시작 버튼
+        startSimBtn.addEventListener('click', () => {
+            if (isSimulationRunning) {
+                cancelAnimationFrame(animationId);
+                startSimBtn.textContent = '시뮬레이션 시작';
+                isSimulationRunning = false;
+            } else {
+                initSimulation();
+                animate();
+                startSimBtn.textContent = '시뮬레이션 일시정지';
+                isSimulationRunning = true;
+            }
+        });
+        
+        // 초기화 버튼
+        resetSimBtn.addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            isSimulationRunning = false;
+            startSimBtn.textContent = '시뮬레이션 시작';
+            
+            // 슬라이더 초기화
+            tempSlider.value = 300;
+            volumeSlider.value = 22.4;
+            molesSlider.value = 1;
+            aParamSlider.value = 1.4;
+            bParamSlider.value = 0.04;
+            
+            // 표시값 업데이트
+            document.getElementById('temperatureValue').textContent = '300';
+            document.getElementById('volumeValue').textContent = '22.4';
+            document.getElementById('molesValue').textContent = '1';
+            document.getElementById('aParamValue').textContent = '1.4';
+            document.getElementById('bParamValue').textContent = '0.04';
+            
+            // 이상기체 선택
+            currentEquation = 'ideal';
+            toggleActiveEquation(idealGasBtn);
+            aParamSlider.disabled = true;
+            bParamSlider.disabled = true;
+            
+            // 데이터 패널 초기화
+            dataOutput.innerHTML = '데이터 로딩 중...';
+            
+            // 미션 텍스트 초기화
+            missionText.innerHTML = '미션: 이상기체와 실제기체 사이의 10% 이상 편차를 만드세요!';
+            missionText.style.backgroundColor = '#e74c3c';
+
+            missionStageSelector.value = "1"; // 추가한 코드 미션스테이지
+
+            
+            // 캔버스 초기화
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+        
+        const missionStageSelector = document.getElementById("missionStageSelector");
+        missionStageSelector.addEventListener("change", () => {
+        missionStage = parseInt(missionStageSelector.value);
+
+            if (missionStage === 1) {
+                missionText.innerHTML = "미션: 이상기체와 실제기체 사이의 10% 이상 편차를 만드세요!";
+                missionText.style.backgroundColor = "#e74c3c";
+             } else if (missionStage === 2) {
+                missionText.innerHTML = "미션: 극한 조건에서 20% 이상의 편차를 만드세요!";
+                missionText.style.backgroundColor = "#e67e22";
+            }
+        });
+
+
+
+        // 미션 단계를 사용자가 선택한 값으로 설정할 수 있게 함
+    // const missionStageSelector = document.getElementById("missionStageSelector");
+    // missionStageSelector.addEventListener("change", () => {
+    // missionStage = parseInt(missionStageSelector.value);
+    
+    // // UI도 즉시 반영
+    // if (missionStage === 1) {
+    //     missionText.innerHTML = "미션: 이상기체와 실제기체 사이의 10% 이상 편차를 만드세요!";
+    //     missionText.style.backgroundColor = "#e74c3c";
+    // } else if (missionStage === 2) {
+    //     missionText.innerHTML = "미션: 극한 조건에서 20% 이상의 편차를 만드세요!";
+    //     missionText.style.backgroundColor = "#e67e22";
+    // }
+    // });
+
+        // 페이지 로드 시 초기화
+        window.onload = function() {
+            resetSimBtn.click();
+        };
+    </script>
+</body>
+</html>
