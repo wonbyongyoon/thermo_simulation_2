@@ -478,24 +478,29 @@ function calculateAndDisplayData() {
     const pressure = calculatePressure();
     const deviation = ((pressure.real - pressure.ideal) / pressure.ideal) * 100;
 
-    dataOutput.innerHTML = `
+    console.log("MISSION DEBUG >> missionStage:", missionStage, "deviation:", deviation.toFixed(2), "cleared:", mission1Cleared, mission2Cleared);
+
+    document.getElementById('dataOutput').innerHTML = `
         <strong>이상기체 압력:</strong> ${pressure.ideal.toFixed(4)} atm<br>
         <strong>실제기체 압력:</strong> ${pressure.real.toFixed(4)} atm<br>
         <strong>편차:</strong> ${Math.abs(deviation).toFixed(2)}%
     `;
 
-    if (missionStage === 1 && Math.abs(deviation) >= 10) {
+    const missionText = document.getElementById('missionText');
+    if (missionStage === 1 && Math.abs(deviation) >= 10 && !mission1Cleared) {
         missionText.innerHTML = `
-            <strong>미션 1 달성!</strong> 10% 이상의 편차를 달성하여 1단계 미션을 완성하였습니다.<br>
-            <em>2단계 미션을 선택해주세요.</em>
+            <strong>미션 1 달성!</strong> 10% 이상의 편차를 달성하였습니다.<br>
+            2단계 미션을 선택해 주세요.
         `;
         missionText.style.backgroundColor = '#27ae60';
-    } else if (missionStage === 2 && Math.abs(deviation) >= 20) {
+        mission1Cleared = true;
+    } else if (missionStage === 2 && Math.abs(deviation) >= 20 && !mission2Cleared) {
         missionText.innerHTML = `
-            <strong>미션 2 달성!</strong> 축하합니다. 2단계 미션을 완수하였습니다.<br>
-            <em>어떤 변수들을 조절하면 이상기체와 실제기체의 차이가 커지는지를 정리해보시기 바랍니다.</em>
+            <strong>미션 2 달성!</strong> 20% 이상의 편차를 달성하였습니다.<br>
+            어떤 조건에서 편차가 커지는지 정리해보세요.
         `;
         missionText.style.backgroundColor = '#8e44ad';
+        mission2Cleared = true;
     }
 }
 
@@ -617,6 +622,11 @@ function calculateAndDisplayData() {
             if (isSimulationRunning) {
                 cancelAnimationFrame(animationId);
                 startSimBtn.textContent = '시뮬레이션 시작';
+    
+missionStage = 1;
+mission1Cleared = false;
+mission2Cleared = false;
+
                 isSimulationRunning = false;
             } else {
                 initSimulation();
@@ -631,6 +641,11 @@ function calculateAndDisplayData() {
             cancelAnimationFrame(animationId);
             isSimulationRunning = false;
             startSimBtn.textContent = '시뮬레이션 시작';
+    
+missionStage = 1;
+mission1Cleared = false;
+mission2Cleared = false;
+
             
             // 슬라이더 초기화
             tempSlider.value = 300;
